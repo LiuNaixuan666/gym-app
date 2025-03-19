@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+
+
+<generatorConfiguration>
+    <!-- 数据库连接 -->
+    <context id="MySQLTables" targetRuntime="MyBatis3">
+<!--        <commentGenerator>-->
+<!--                    <property name="suppressAllComments" value="false"/>-->
+<!--                    <property name="suppressDate" value="true"/>-->
+<!--        </commentGenerator>-->
+        <jdbcConnection driverClass="com.mysql.cj.jdbc.Driver"
+                        connectionURL="jdbc:mysql://rm-2zeomshg43f9nv36weo.mysql.rds.aliyuncs.com:3306/gymmanagement?serverTimezone=UTC&amp;useSSL=false&amp;useUnicode=true&amp;characterEncoding=UTF8"
+                        userId="GYMapp"
+                        password="Liu13944112678"/>
+
+        <!-- 生成的 Java Bean -->
+        <javaModelGenerator targetPackage="com.liu.gymmanagement.model"
+                            targetProject="src/main/java">
+                 <property name="enableSubPackages" value="true"/>
+                 <property name="trimStrings" value="true"/>
+        </javaModelGenerator>
+
+        <!-- 指定 XML 映射文件生成路径 -->
+        <sqlMapGenerator targetPackage="mapper"
+                         targetProject="src/main/resources">
+            <property name="enableSubPackages" value="true"/>
+        </sqlMapGenerator>
+
+        <!-- 指定 Mapper 接口生成路径 -->
+        <javaClientGenerator type="XMLMAPPER"
+                             targetPackage="com.liu.gymmanagement.mapper"
+                             targetProject="src/main/java">
+            <property name="enableSubPackages" value="true"/>
+        </javaClientGenerator>
+
+        <!-- 逆向生成的表 -->
+        <table tableName="equipment" domainObjectName="Equipment"/>
+        <table tableName="gym" domainObjectName="Gym"/>
+        <table tableName="feedbacks" domainObjectName="Feedback"/>
+        <table tableName="notifications" domainObjectName="Notification"/>
+        <table tableName="reports" domainObjectName="Report"/>
+        <table tableName="reservations" domainObjectName="Reservation"/>
+        <table tableName="capacity_config" domainObjectName="CapacityConfig"/>
+        <table tableName="capacity_logs" domainObjectName="CapacityLog"/>
+        <table tableName="equipmentstatus" domainObjectName="EquipmentStatus"/>
+    </context>
+</generatorConfiguration>
