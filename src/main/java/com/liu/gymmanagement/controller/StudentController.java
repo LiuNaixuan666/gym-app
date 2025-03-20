@@ -1,12 +1,18 @@
 package com.liu.gymmanagement.controller;
 
+import com.liu.gymmanagement.dto.ReservationDTO;
+import com.liu.gymmanagement.dto.ReservationRequest;
+import com.liu.gymmanagement.model.Gym;
 import com.liu.gymmanagement.model.User;
+import com.liu.gymmanagement.service.GymService;
+import com.liu.gymmanagement.service.ReservationService;
 import com.liu.gymmanagement.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Optional;
 
 @RestController
@@ -15,6 +21,12 @@ public class StudentController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private GymService gymService;
+
+    @Autowired
+    private ReservationService reservationService;
 
     // 学生注册
     @PostMapping("/register")
@@ -47,6 +59,45 @@ public class StudentController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         }
     }
+
+    /// 查询所有健身房
+    @GetMapping("/gyms")
+    public ResponseEntity<List<Gym>> getAllGyms() {
+        List<Gym> gyms = gymService.getAllGyms();  // 查询所有健身房
+        if (gyms.isEmpty()) {
+            return ResponseEntity.noContent().build();  // 如果没有健身房数据，返回204 No Content
+        }
+        return ResponseEntity.ok(gyms);  // 返回200 OK和健身房数据
+    }
+
+    // 学生预约健身房
+    @PostMapping("/reserve")
+    public ResponseEntity<String> reserveGym(@RequestBody ReservationRequest reservationRequest) {
+        boolean success = reservationService.reserveGym(reservationRequest);
+        if (success) {
+            return ResponseEntity.ok("预约成功");
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("预约失败，可能已约满");
+        }
+    }
+
+    // 学生取消预约
+    @DeleteMapping("/cancel/{reservationId}")
+    public ResponseEntity<String> cancelReservation(@PathVariable int reservationId) {
+        boolean success = reservationService.cancelReservation(reservationId);
+        if (success) {
+            return ResponseEntity.ok("取消成功");
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("无法取消，可能已过取消时限");
+        }
+    }
+
+    // 获取学生所有预约
+    @GetMapping("/reservations")
+    public List<ReservationDTO> getStudentReservations(@RequestParam String userId) {
+        return reservationService.getUserReservations(userId);
+    }
+
 
     // 注册用户（公用方法）
     private ResponseEntity<?> registerUser(User user, int roleId) {
