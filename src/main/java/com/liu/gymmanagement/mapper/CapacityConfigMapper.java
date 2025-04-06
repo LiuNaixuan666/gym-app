@@ -3,7 +3,11 @@ package com.liu.gymmanagement.mapper;
 import com.liu.gymmanagement.model.CapacityConfig;
 import com.liu.gymmanagement.model.CapacityConfigExample;
 import java.util.List;
+
+import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
+
 
 public interface CapacityConfigMapper {
     /**
@@ -93,4 +97,6 @@ public interface CapacityConfigMapper {
      * @mbg.generated Thu Mar 20 02:19:12 CST 2025
      */
     int updateByPrimaryKey(CapacityConfig record);
+
+
 }

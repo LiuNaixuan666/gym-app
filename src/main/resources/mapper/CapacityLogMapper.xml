@@ -11,6 +11,7 @@
     <result column="GymID" jdbcType="INTEGER" property="gymid" />
     <result column="current_count" jdbcType="INTEGER" property="currentCount" />
     <result column="log_time" jdbcType="TIMESTAMP" property="logTime" />
+    <result property="name" column="Name" jdbcType="VARCHAR"/>
   </resultMap>
   <sql id="Example_Where_Clause">
     <!--

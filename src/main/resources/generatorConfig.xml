@@ -15,7 +15,6 @@
                         connectionURL="jdbc:mysql://rm-2zeomshg43f9nv36weo.mysql.rds.aliyuncs.com:3306/gymmanagement?serverTimezone=UTC&amp;useSSL=false&amp;useUnicode=true&amp;characterEncoding=UTF8"
                         userId="GYMapp"
                         password="Liu13944112678"/>
-
         <!-- 生成的 Java Bean -->
         <javaModelGenerator targetPackage="com.liu.gymmanagement.model"
                             targetProject="src/main/java">
@@ -42,11 +41,13 @@
 <!--        <table tableName="feedbacks" domainObjectName="Feedback"/>-->
 <!--        <table tableName="notifications" domainObjectName="Notification"/>-->
 <!--        <table tableName="reports" domainObjectName="Report"/>-->
-<!--        <table tableName="reservations" domainObjectName="Reservation"/>-->
+        <table tableName="reservations" domainObjectName="Reservation"/>
+        <table tableName="accesslogs" domainObjectName="Accesslogs"/>
 <!--        <table tableName="capacity_config" domainObjectName="CapacityConfig"/>-->
 <!--        <table tableName="capacity_logs" domainObjectName="CapacityLog"/>-->
 <!--        <table tableName="equipmentstatus" domainObjectName="EquipmentStatus"/>-->
 <!--        <table tableName="gym_timeslot" domainObjectName="GymTimeslot"/>-->
-        <table tableName="gym_timeslot_template" domainObjectName="GymTimeslotTemplate"/>
+<!--        <table tableName="gym_timeslot_template" domainObjectName="GymTimeslotTemplate"/>-->
+
     </context>
 </generatorConfiguration>

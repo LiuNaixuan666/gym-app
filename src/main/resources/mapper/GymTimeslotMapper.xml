@@ -9,7 +9,7 @@
     -->
     <id column="id" jdbcType="INTEGER" property="id" />
     <result column="GymID" jdbcType="INTEGER" property="gymid" />
-    <result column="date" jdbcType="DATE" property="date" />
+    <result column="date" jdbcType="DATE" property="date" javaType="java.time.LocalDate" typeHandler= "org.apache.ibatis.type.LocalDateTypeHandler"/>
     <result column="start_time" jdbcType="TIME" property="startTime" javaType="java.time.LocalTime" typeHandler= "org.apache.ibatis.type.LocalTimeTypeHandler"/>
     <result column="end_time" jdbcType="TIME" property="endTime" javaType="java.time.LocalTime" typeHandler= "org.apache.ibatis.type.LocalTimeTypeHandler"/>
     <result column="max_capacity" jdbcType="INTEGER" property="maxCapacity" />
@@ -120,6 +120,11 @@
     <include refid="Base_Column_List" />
     from gym_timeslot
     where id = #{id,jdbcType=INTEGER}
+  </select>
+  <select id="selectFutureTimeslots" resultType="com.liu.gymmanagement.model.GymTimeslot">
+    SELECT * FROM gym_timeslot
+    WHERE date BETWEEN #{startDate} AND #{endDate}
+    ORDER BY date, start_time
   </select>
   <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
     <!--

@@ -43,10 +43,10 @@ public class UserService {
                 throw new RuntimeException("UserID already exists");
             }
 
-            // 检查手机号是否存在
-//            if (userRepository.findByPhone(user.getPhone()).isPresent()) {
-//                throw new RuntimeException("Phone number already registered");
-//            }
+            //检查手机号是否存在
+            if (userRepository.findByPhone(user.getPhone()).isPresent()) {
+                throw new RuntimeException("Phone number already registered");
+            }
 
             // 加密密码
             user.setPassword(passwordEncoder.encode(user.getPassword()));
@@ -78,25 +78,48 @@ public class UserService {
 
     }
 
-    // 用户登录
+    // 用户登录（修改后支持JWT）
     public Optional<User> loginUser(String userID, String password, int roleId) {
         Optional<User> user = userRepository.findByUserID(userID);
-//        if (user.isPresent() && passwordEncoder.matches(password, user.get().getPassword())) {
-//            // 检查用户是否有该角色
-//            if (user.get().getRoles().contains(roleId)) {
-//                return user;
-//            }
-//        }
-//        return Optional.empty();  // 登录失败
+
         if (user.isPresent()) {
+            // 调试信息
             System.out.println("User found: " + user.get().getUserID());
             System.out.println("Password matches: " + passwordEncoder.matches(password, user.get().getPassword()));
+
+            // 验证密码
             if (passwordEncoder.matches(password, user.get().getPassword())) {
-                return user;
+                // 检查用户是否有该角色
+                List<UserRole> roles = userRoleRepository.findById_UserID(userID);
+                boolean hasRole = roles.stream().anyMatch(r -> r.getRoleID() == roleId);
+
+                if (hasRole) {
+                    return user;
+                }
             }
         }
         return Optional.empty();
     }
+
+//    // 用户登录
+//    public Optional<User> loginUser(String userID, String password, int roleId) {
+//        Optional<User> user = userRepository.findByUserID(userID);
+////        if (user.isPresent() && passwordEncoder.matches(password, user.get().getPassword())) {
+////            // 检查用户是否有该角色
+////            if (user.get().getRoles().contains(roleId)) {
+////                return user;
+////            }
+////        }
+////        return Optional.empty();  // 登录失败
+//        if (user.isPresent()) {
+//            System.out.println("User found: " + user.get().getUserID());
+//            System.out.println("Password matches: " + passwordEncoder.matches(password, user.get().getPassword()));
+//            if (passwordEncoder.matches(password, user.get().getPassword())) {
+//                return user;
+//            }
+//        }
+//        return Optional.empty();
+//    }
 
     //实现查询用户信息
     public Optional<User> getUserInfo(String userID, int roleId) {
@@ -116,7 +139,7 @@ public class UserService {
         return Optional.empty();  // 用户不存在或者没有该角色
     }
 
-    //实现修改用户信息
+    // 修改用户信息
     public User updateUserInfo(String userID, int roleId, User updatedUser) {
         Optional<User> existingUserOpt = userRepository.findByUserID(userID);
 
@@ -131,15 +154,19 @@ public class UserService {
                 throw new RuntimeException("Unauthorized to update this user.");
             }
 
-            // 只允许修改除 userID 和角色外的字段
-            // 这里会对传入的字段进行判断，如果字段有修改就更新
+            // 更新可修改字段
             if (updatedUser.getUsername() != null) {
                 existingUser.setUsername(updatedUser.getUsername());
             }
             if (updatedUser.getPhone() != null) {
+                // 检查新手机号是否已被其他用户使用
+                Optional<User> phoneUser = userRepository.findByPhone(updatedUser.getPhone());
+                if (phoneUser.isPresent() && !phoneUser.get().getUserID().equals(userID)) {
+                    throw new RuntimeException("Phone number already in use by another user");
+                }
                 existingUser.setPhone(updatedUser.getPhone());
             }
-            if (updatedUser.getAge() != 0) {  // 你可以根据实际业务规则来判断age
+            if (updatedUser.getAge() != 0) {
                 existingUser.setAge(updatedUser.getAge());
             }
             if (updatedUser.getGender() != null) {
@@ -149,9 +176,9 @@ public class UserService {
                 existingUser.setLabel(updatedUser.getLabel());
             }
 
-            // 这里密码不能更新，如果用户提供了密码，则不做任何操作
-            if (updatedUser.getPassword() != null) {
-                throw new RuntimeException("Password cannot be updated.");
+            // 如果提供了新密码，则加密后更新
+            if (updatedUser.getPassword() != null && !updatedUser.getPassword().trim().isEmpty()) {
+                existingUser.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
             }
 
             return userRepository.save(existingUser);
@@ -159,6 +186,51 @@ public class UserService {
             throw new RuntimeException("User not found.");
         }
     }
+
+
+//    //实现修改用户信息
+//    public User updateUserInfo(String userID, int roleId, User updatedUser) {
+//        Optional<User> existingUserOpt = userRepository.findByUserID(userID);
+//
+//        if (existingUserOpt.isPresent()) {
+//            User existingUser = existingUserOpt.get();
+//
+//            // 确保用户有该角色
+//            List<UserRole> roles = userRoleRepository.findById_UserID(userID);
+//            boolean hasRole = roles.stream().anyMatch(r -> r.getRoleID() == roleId);
+//
+//            if (!hasRole) {
+//                throw new RuntimeException("Unauthorized to update this user.");
+//            }
+//
+//            // 只允许修改除 userID 和角色外的字段
+//            // 这里会对传入的字段进行判断，如果字段有修改就更新
+//            if (updatedUser.getUsername() != null) {
+//                existingUser.setUsername(updatedUser.getUsername());
+//            }
+//            if (updatedUser.getPhone() != null) {
+//                existingUser.setPhone(updatedUser.getPhone());
+//            }
+//            if (updatedUser.getAge() != 0) {  // 你可以根据实际业务规则来判断age
+//                existingUser.setAge(updatedUser.getAge());
+//            }
+//            if (updatedUser.getGender() != null) {
+//                existingUser.setGender(updatedUser.getGender());
+//            }
+//            if (updatedUser.getLabel() != null) {
+//                existingUser.setLabel(updatedUser.getLabel());
+//            }
+//
+//            // 这里密码不能更新，如果用户提供了密码，则不做任何操作
+//            if (updatedUser.getPassword() != null) {
+//                throw new RuntimeException("Password cannot be updated.");
+//            }
+//
+//            return userRepository.save(existingUser);
+//        } else {
+//            throw new RuntimeException("User not found.");
+//        }
+//    }
 
 
     @Autowired

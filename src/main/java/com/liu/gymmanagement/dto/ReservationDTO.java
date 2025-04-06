@@ -9,6 +9,18 @@ public class ReservationDTO {
     private int timeslotId;
     private String userId;
     private LocalDateTime reservationTime;
+    private String entryQrCode;
+    private String exitQrCode;
+    private LocalDateTime qrExpiryTime;
+    private String status;
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
     public int getReservationId() {
         return reservationId;
@@ -50,4 +62,30 @@ public class ReservationDTO {
     public void setUserId(String userId) {
         this.userId = userId;
     }
+
+    public String getEntryQrCode() {
+        return entryQrCode;
+    }
+
+    public void setEntryQrCode(String entryQrCode) {
+        this.entryQrCode = entryQrCode;
+    }
+
+    public String getExitQrCode() {
+        return exitQrCode;
+    }
+
+    public void setExitQrCode(String exitQrCode) {
+        this.exitQrCode = exitQrCode;
+    }
+
+    public LocalDateTime getQrExpiryTime() {
+        return qrExpiryTime;
+    }
+
+    public void setQrExpiryTime(LocalDateTime qrExpiryTime) {
+        this.qrExpiryTime = qrExpiryTime;
+    }
+
+
 }

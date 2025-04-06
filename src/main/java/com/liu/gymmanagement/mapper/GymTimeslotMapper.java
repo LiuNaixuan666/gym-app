@@ -2,7 +2,11 @@ package com.liu.gymmanagement.mapper;
 
 import com.liu.gymmanagement.model.GymTimeslot;
 import com.liu.gymmanagement.model.GymTimeslotExample;
+
+import java.time.LocalDate;
 import java.util.List;
+
+import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 public interface GymTimeslotMapper {
@@ -95,4 +99,7 @@ public interface GymTimeslotMapper {
     int updateByPrimaryKey(GymTimeslot record);
 
     GymTimeslot selectByExample(int timeslotId);
+
+    List<GymTimeslot> selectFutureTimeslots(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
 }
