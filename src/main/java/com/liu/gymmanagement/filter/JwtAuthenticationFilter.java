@@ -25,6 +25,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        String path = request.getRequestURI();
+
+        // 跳过无需验证的接口
+        if (path.equals("/api/student/send-code") || path.equals("/api/student/register") || path.equals("/api/student/login")
+                || path.equals("/api/admin/send-code") || path.equals("/api/admin/register") || path.equals("/api/admin/login")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         String token = jwtUtil.getTokenFromRequest(request);
 

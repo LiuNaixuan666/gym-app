@@ -8,28 +8,30 @@ import com.liu.gymmanagement.model.CapacityLog;
 import com.liu.gymmanagement.model.Gym;
 import com.liu.gymmanagement.model.GymTimeslot;
 import com.liu.gymmanagement.model.User;
-import com.liu.gymmanagement.service.GymService;
-import com.liu.gymmanagement.service.GymTimeslotService;
-import com.liu.gymmanagement.service.ReservationService;
-import com.liu.gymmanagement.service.UserService;
+import com.liu.gymmanagement.service.*;
 import com.liu.gymmanagement.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+
 
 @RestController
 @RequestMapping("/api/student")
 public class StudentController {
+
+    private static final Logger logger = LoggerFactory.getLogger(StudentController.class);
 
     @Autowired
     private UserService userService;
@@ -49,12 +51,104 @@ public class StudentController {
     @Autowired
     private JwtUtil jwtUtil;
 
-    // 学生注册
-    @PostMapping("/register")
-    public ResponseEntity<?> registerStudent(@RequestBody User user) {
-        return registerUser(user, 1);  // 角色ID = 1 (学生)
+//    @Autowired
+//    private RedisTemplate<String, String> redisTemplate;
+
+    // 假设 Map 用来做降级处理
+    //private Map<String, String> localCache = new ConcurrentHashMap<>();
+
+    @Autowired
+    private EmailCodeCache localCache;
+
+    @PostMapping("/send-code")
+    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
+        if (!email.endsWith("@bupt.edu.cn")) {
+            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
+        }
+
+        SecureRandom secureRandom = new SecureRandom();
+        int code = secureRandom.nextInt(999999);
+        String formattedCode = String.format("%06d", code);
+
+        // ✅ 只用本地缓存保存验证码
+        localCache.put(email, formattedCode, Duration.ofMinutes(10));
+
+        try {
+            userService.sendEmailVerificationCode(email, formattedCode);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to send verification code due to an error.");
+        }
+
+        return ResponseEntity.ok("Verification code sent!");
     }
 
+
+//    //发送验证码接口
+//    @GetMapping("/send-code")
+//    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
+//        if (!email.endsWith("@bupt.edu.cn")) {
+//            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
+//        }
+//
+//        String code = String.format("%06d", new Random().nextInt(999999));
+//        redisTemplate.opsForValue().set("email:code:" + email, code, Duration.ofMinutes(10));
+//        userService.sendEmailVerificationCode(email, code);
+//
+//        return ResponseEntity.ok("Verification code sent!");
+//    }
+    // 发送验证码接口
+//    @PostMapping("/send-code")
+//    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
+//        if (!email.endsWith("@bupt.edu.cn")) {
+//            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
+//        }
+//
+//        // 使用 SecureRandom 来生成验证码
+//        SecureRandom secureRandom = new SecureRandom();
+//        int code = secureRandom.nextInt(999999);  // 生成一个随机数
+//        String formattedCode = String.format("%06d", code); // 保证6位数
+//
+//        // 保存验证码到 Redis，有效期 10 分钟
+//        // 尝试使用 Redis 存储验证码
+//        try {
+//            redisTemplate.opsForValue().set("email:code:" + email, formattedCode, Duration.ofMinutes(10));
+//        } catch (Exception e) {
+//            // Redis 连接失败，使用内存缓存作为备选方案
+//            localCache.put(email, formattedCode);
+//            logger.error("Redis connection failed for saving email code for {}: {}", email, e.getMessage());
+//        }
+//        try {
+//            // 发送验证码邮件
+//            userService.sendEmailVerificationCode(email, formattedCode);
+//        } catch (Exception e) {
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body("Failed to send verification code due to an error.");
+//        }
+//
+//        return ResponseEntity.ok("Verification code sent!");
+//    }
+//
+//
+    // 学生注册
+    @PostMapping("/register")
+    public ResponseEntity<?> registerStudent(@RequestBody User user, @RequestParam String verificationCode) {
+        try {
+            // 调用业务层注册方法
+            User registeredUser = userService.registerUser(user, 1, verificationCode);  // 角色ID = 1 (学生)
+            return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);
+        } catch (Exception e) {
+            // 异常处理，返回具体的错误信息
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Registration failed: " + e.getMessage());
+        }
+    }
+
+
+    //    // 学生注册
+//    @PostMapping("/register")
+//    public ResponseEntity<?> registerStudent(@RequestBody User user) {
+//        return registerUser(user, 1);  // 角色ID = 1 (学生)
+//    }
     // 学生登录 (不需要认证)
     @PostMapping("/login")
     public ResponseEntity<?> loginStudent(@RequestBody User loginUser) {
@@ -166,8 +260,9 @@ public class StudentController {
     }
 
     // 注册用户（公用方法）
-    private ResponseEntity<?> registerUser(User user, int roleId) {
+    private ResponseEntity<?> registerUser(User user, int roleId, String verificationCode) {
         try {
+            // 校验必要字段
             if (user.getUserID() == null || user.getUserID().trim().isEmpty()) {
                 return new ResponseEntity<>("UserID cannot be empty", HttpStatus.BAD_REQUEST);
             }
@@ -180,13 +275,39 @@ public class StudentController {
             if (user.getPhone() == null || user.getPhone().trim().isEmpty()) {
                 return new ResponseEntity<>("Phone cannot be empty", HttpStatus.BAD_REQUEST);
             }
+            if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
+                return new ResponseEntity<>("Email cannot be empty", HttpStatus.BAD_REQUEST);
+            }
 
-            User registeredUser = userService.registerUser(user, roleId);
+            // 调用 service 层的 registerUser 方法，加入验证码验证
+            User registeredUser = userService.registerUser(user, roleId, verificationCode);
             return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);
         } catch (RuntimeException e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
+
+//    private ResponseEntity<?> registerUser(User user, int roleId) {
+//        try {
+//            if (user.getUserID() == null || user.getUserID().trim().isEmpty()) {
+//                return new ResponseEntity<>("UserID cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//            if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+//                return new ResponseEntity<>("Username cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//            if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+//                return new ResponseEntity<>("Password cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//            if (user.getPhone() == null || user.getPhone().trim().isEmpty()) {
+//                return new ResponseEntity<>("Phone cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//
+//            User registeredUser = userService.registerUser(user, roleId);
+//            return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);
+//        } catch (RuntimeException e) {
+//            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+//        }
+//    }
 
     // 登录用户（公用方法）
     private ResponseEntity<?> loginUser(User loginUser, int roleId) {

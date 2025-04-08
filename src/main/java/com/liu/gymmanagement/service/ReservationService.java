@@ -25,12 +25,10 @@ public class ReservationService {
     private ReservationMapper reservationMapper;
     @Autowired
     private GymTimeslotMapper gymTimeslotMapper;
-//    @Autowired
-//    private QRCodeService qrCodeService;
 
-    public String generateQrCode(String userId, int gymId, String type) {
+    public String generateQrCode(String userId, int gymId, String type, int reservationId) {
         String uniqueCode = UUID.randomUUID().toString(); // 生成唯一标识
-        return gymId + "_" + userId + "_" + type + "_" + uniqueCode;
+        return gymId + "_" + userId + "_" + type + "_" + reservationId + "_" + uniqueCode;
     }
 
     public boolean reserveGym(ReservationRequest request) {
@@ -40,36 +38,37 @@ public class ReservationService {
             return false; // 已满
         }
 
-
         // 插入预约记录
         Reservation reservation = new Reservation();
         reservation.setUserid(request.getUserId());
         reservation.setGymid(request.getGymId());
         reservation.setTimeslotid(request.getTimeslotId());
         reservation.setStatus("booked"); // 设置状态为 booked
-        //reservation.setQrCode(UUID.randomUUID().toString()); // 生成二维码
-        reservation.setEntryQrCode(generateQrCode(request.getUserId(), request.getGymId(), "entry"));
-        reservation.setExitQrCode(generateQrCode(request.getUserId(), request.getGymId(), "exit"));
         reservation.setReservationTime(LocalDateTime.now());
-        reservationMapper.insert(reservation);
 
-//        // 生成进出二维码(需要先插入以获取ID)
-//        String entryQR = qrCodeService.generateEntryQRCode(
-//                reservation.getReservationid().toString(),
-//                reservation.getUserid(),
-//                reservation.getGymid()
-//        );
+        // 先插入预约记录，获取自动生成的 reservationId
+        reservationMapper.insertReservation(reservation);  // 假设 reservationMapper 配置了返回主键功能
+
+        // 获取自动生成的 reservationId
+        Integer reservationId = reservation.getReservationid(); // 注意这里使用 Integer 类型避免 NPE
+
+        if (reservationId == null) {
+            // 如果 reservationId 为 null，表示插入失败或未能获取到主键
+            return false;
+        }
+
+//        // 生成二维码（将 reservationId 传入生成二维码方法）
+//        reservation.setEntryQrCode(generateQrCode(request.getUserId(), request.getGymId(), "entry", reservationId));
+//        reservation.setExitQrCode(generateQrCode(request.getUserId(), request.getGymId(), "exit", reservationId));
 //
-//        String exitQR = qrCodeService.generateExitQRCode(
-//                reservation.getReservationid().toString(),
-//                reservation.getUserid(),
-//                reservation.getGymid()
-//        );
-//
-//        // 设置二维码信息和24小时有效期
-//        reservation.setEntryQrCode(entryQR);
-//        reservation.setExitQrCode(exitQR);
-//        reservation.setQrExpiryTime(LocalDateTime.now().plusHours(36));
+        // 生成二维码
+        String entryCode = generateQrCode(request.getUserId(), request.getGymId(), "entry", reservationId);
+        String exitCode = generateQrCode(request.getUserId(), request.getGymId(), "exit", reservationId);
+
+        // 更新二维码字段
+        reservation.setEntryQrCode(entryCode);
+        reservation.setExitQrCode(exitCode);
+        reservationMapper.updateByPrimaryKeySelective(reservation); // 更新二维码
 
         // 更新时段表的 current_reservations +1
         timeslot.setCurrentReservations(timeslot.getCurrentReservations() + 1);
@@ -190,6 +189,94 @@ public class ReservationService {
         return dto;
     }
 
+
+
+
+//    public boolean reserveGym(ReservationRequest request) {
+//        // 查询时段信息
+//        GymTimeslot timeslot = gymTimeslotMapper.selectByPrimaryKey(request.getTimeslotId());
+//        if (timeslot == null || timeslot.getCurrentReservations() >= timeslot.getMaxCapacity()) {
+//            return false; // 已满
+//        }
+//
+//        // 插入预约记录
+//        Reservation reservation = new Reservation();
+//        reservation.setUserid(request.getUserId());
+//        reservation.setGymid(request.getGymId());
+//        reservation.setTimeslotid(request.getTimeslotId());
+//        reservation.setStatus("booked"); // 设置状态为 booked
+//        reservation.setReservationTime(LocalDateTime.now());
+//
+//        // 先插入预约记录，获取自动生成的 reservationId
+//        reservationMapper.insert(reservation);  // 这里假设 reservationMapper 已经配置为返回主键
+//
+//        // 获取自动生成的 reservationId
+//        int reservationId = reservation.getReservationid();
+//
+//        // 生成二维码（将 reservationId 传入生成二维码方法）
+//        reservation.setEntryQrCode(generateQrCode(request.getUserId(), request.getGymId(), "entry", reservationId));
+//        reservation.setExitQrCode(generateQrCode(request.getUserId(), request.getGymId(), "exit", reservationId));
+//
+//        // 更新时段表的 current_reservations +1
+//        timeslot.setCurrentReservations(timeslot.getCurrentReservations() + 1);
+//        gymTimeslotMapper.updateByPrimaryKeySelective(timeslot);
+//
+//        return true;
+//    }
+
+//    @Autowired
+//    private QRCodeService qrCodeService;
+
+//    public String generateQrCode(String userId, int gymId, String type) {
+//        String uniqueCode = UUID.randomUUID().toString(); // 生成唯一标识
+//        return gymId + "_" + userId + "_" + type + "_" + uniqueCode;
+//    }
+
+
+//    public boolean reserveGym(ReservationRequest request) {
+//        // 查询时段信息
+//        GymTimeslot timeslot = gymTimeslotMapper.selectByPrimaryKey(request.getTimeslotId());
+//        if (timeslot == null || timeslot.getCurrentReservations() >= timeslot.getMaxCapacity()) {
+//            return false; // 已满
+//        }
+//
+//
+//        // 插入预约记录
+//        Reservation reservation = new Reservation();
+//        reservation.setUserid(request.getUserId());
+//        reservation.setGymid(request.getGymId());
+//        reservation.setTimeslotid(request.getTimeslotId());
+//        reservation.setStatus("booked"); // 设置状态为 booked
+//        //reservation.setQrCode(UUID.randomUUID().toString()); // 生成二维码
+//        reservation.setEntryQrCode(generateQrCode(request.getUserId(), request.getGymId(), "entry"));
+//        reservation.setExitQrCode(generateQrCode(request.getUserId(), request.getGymId(), "exit"));
+//        reservation.setReservationTime(LocalDateTime.now());
+//        reservationMapper.insert(reservation);
+//
+////        // 生成进出二维码(需要先插入以获取ID)
+////        String entryQR = qrCodeService.generateEntryQRCode(
+////                reservation.getReservationid().toString(),
+////                reservation.getUserid(),
+////                reservation.getGymid()
+////        );
+////
+////        String exitQR = qrCodeService.generateExitQRCode(
+////                reservation.getReservationid().toString(),
+////                reservation.getUserid(),
+////                reservation.getGymid()
+////        );
+////
+////        // 设置二维码信息和24小时有效期
+////        reservation.setEntryQrCode(entryQR);
+////        reservation.setExitQrCode(exitQR);
+////        reservation.setQrExpiryTime(LocalDateTime.now().plusHours(36));
+//
+//        // 更新时段表的 current_reservations +1
+//        timeslot.setCurrentReservations(timeslot.getCurrentReservations() + 1);
+//        gymTimeslotMapper.updateByPrimaryKeySelective(timeslot);
+//
+//        return true;
+//    }
 
 //    public boolean reserveGym(ReservationRequest request) {
 //        // 查询时段信息

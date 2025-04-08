@@ -5,9 +5,7 @@ import com.liu.gymmanagement.model.ReservationExample;
 import java.util.List;
 import java.util.Optional;
 
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.*;
 
 @Mapper
 public interface ReservationMapper {
@@ -41,6 +39,12 @@ public interface ReservationMapper {
      *
      * @mbg.generated Wed Mar 26 00:44:02 CST 2025
      */
+    //@Options(useGeneratedKeys = true, keyProperty = "reservationid", keyColumn = "ReservationID")
+    @Insert("INSERT INTO reservations (UserID, GymID, TimeslotID, reservation_time, status, entry_qr_code, exit_qr_code, qr_expiry_time) " +
+            "VALUES (#{userid}, #{gymid}, #{timeslotid}, #{reservationTime}, #{status}, #{entryQrCode}, #{exitQrCode}, #{qrExpiryTime})")
+    @Options(useGeneratedKeys = true, keyProperty = "reservationid", keyColumn = "ReservationID")
+    int insertReservation(Reservation reservation);
+
     int insert(Reservation record);
 
     /**
@@ -100,6 +104,6 @@ public interface ReservationMapper {
     int updateByPrimaryKey(Reservation record);
 
     // 查询二维码对应的预订记录
-    @Select("SELECT * FROM reservation WHERE entry_qr_code = #{qrCodeData} OR exit_qr_code = #{qrCodeData} LIMIT 1")
+    @Select("SELECT * FROM reservations WHERE entry_qr_code = #{qrCodeData} OR exit_qr_code = #{qrCodeData} LIMIT 1")
     Optional<Reservation> findByEntryQrCodeOrExitQrCode(String qrCodeData);
 }

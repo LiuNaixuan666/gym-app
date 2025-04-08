@@ -15,6 +15,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.http.HttpMethod;
 import java.util.Arrays;
+import java.util.Collections;
 
 @Configuration
 @EnableWebSecurity
@@ -41,7 +42,10 @@ public class SecurityConfig {
                                 "/api/student/register",
                                 "/api/student/login",
                                 "/api/admin/register",
-                                "/api/admin/login"
+                                "/api/admin/login",
+                                "/api/student/send-code",
+                                "/api/admin/send-code",
+                                "/api/qrcode/scan"
                         ).permitAll()
 
                         // 学生端点的访问控制
@@ -63,9 +67,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("*"));  // 允许所有来源
+        configuration.setAllowedOriginPatterns(Collections.singletonList("*"));
+        //configuration.setAllowedOrigins(Arrays.asList("*"));  // 允许所有来源
+        //configuration.setAllowedOrigins(Arrays.asList("http://10.29.195.56:8080"));  // 允许所有来源
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true); // 如果你有用 token 或登录信息
         configuration.setExposedHeaders(Arrays.asList("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

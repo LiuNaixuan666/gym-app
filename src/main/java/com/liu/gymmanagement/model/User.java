@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import java.util.Set;
 import java.util.HashSet;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.Getter;
 
 // import lombok.Getter;
 // import lombok.Setter;
@@ -35,6 +36,14 @@ public class User {
     @Column(name = "lable")
     private String label;  // 使用 String 类型来映射标签
 
+    @Getter
+    @Column(name = "email")
+    private String email;
+
+    @Column(name = "is_email_verified")
+    private Boolean isEmailVerified = false;  // 默认是未验证的
+
+
 
     // 角色的关系
     @JsonIgnoreProperties("users")
@@ -51,7 +60,7 @@ public class User {
         // 无参构造方法
     }
 
-    public User(String userID, String username, String password, String phone, int age, String gender, String label, Set<Role> roles) {
+    public User(String userID, String username, String password, String phone, int age, String gender, String label, boolean isEmailVerified, String email, Set<Role> roles) {
         this.userID = userID;
         this.username = username;
         this.password = password;
@@ -59,6 +68,8 @@ public class User {
         this.age = age;
         this.gender = gender;
         this.label = label;
+        this.email = email;
+        this.isEmailVerified = isEmailVerified;
         this.roles = roles;
     }
 
@@ -118,6 +129,22 @@ public class User {
         this.label = label;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public Boolean getEmailVerified() {
+        return isEmailVerified;
+    }
+
+    public void setEmailVerified(Boolean emailVerified) {
+        isEmailVerified = emailVerified;
+    }
+
     // Getter and Setter for roles
     public Set<Role> getRoles() {
         return roles;
@@ -126,6 +153,5 @@ public class User {
     public void setRoles(Set<Role> roles) {
         this.roles = roles;
     }
-
 }
 

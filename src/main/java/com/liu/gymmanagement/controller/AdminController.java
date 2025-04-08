@@ -13,10 +13,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -35,11 +34,69 @@ public class AdminController {
     @Autowired
     private JwtUtil jwtUtil;
 
-    // 管理员注册 (不需要认证)
-    @PostMapping("/register")
-    public ResponseEntity<?> registerAdmin(@RequestBody User user) {
-        return registerUser(user, 2);  // 角色ID = 2 (管理员)
+    // 发送验证码接口
+    @Autowired
+    private EmailCodeCache localCache;
+
+    @PostMapping("/send-code")
+    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
+        if (!email.endsWith("@bupt.edu.cn")) {
+            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
+        }
+
+        SecureRandom secureRandom = new SecureRandom();
+        int code = secureRandom.nextInt(999999);
+        String formattedCode = String.format("%06d", code);
+
+        // ✅ 只用本地缓存保存验证码
+        localCache.put(email, formattedCode, Duration.ofMinutes(10));
+
+        try {
+            userService.sendEmailVerificationCode(email, formattedCode);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to send verification code due to an error.");
+        }
+
+        return ResponseEntity.ok("Verification code sent!");
     }
+
+
+    // 管理员注册
+    @PostMapping("/register")
+    public ResponseEntity<?> registerAdmin(@RequestBody User user, @RequestParam String verificationCode) {
+        try {
+            // 调用业务层注册方法
+            User registeredUser = userService.registerUser(user, 2, verificationCode);  // 角色ID = 2
+            return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);
+        } catch (Exception e) {
+            // 异常处理，返回具体的错误信息
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Registration failed: " + e.getMessage());
+        }
+    }
+
+
+//    //发送验证码接口
+//    @GetMapping("/send-code")
+//    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
+//        if (!email.endsWith("@bupt.edu.cn")) {
+//            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
+//        }
+//
+//        String code = String.format("%06d", new Random().nextInt(999999));
+//        redisTemplate.opsForValue().set("email:code:" + email, code, Duration.ofMinutes(10));
+//        userService.sendEmailVerificationCode(email, code);
+//
+//        return ResponseEntity.ok("Verification code sent!");
+//    }
+//
+//    // 管理员注册 (不需要认证)
+//    @PostMapping("/register")
+//    public ResponseEntity<?> registerAdmin(@RequestBody User user, @RequestParam String verificationCode) {
+//        User registeredUser = userService.registerUser(user, 2, verificationCode);  // 角色ID = 2 (管理员)
+//
+//        // 返回 ResponseEntity，包含注册的用户信息和 CREATED 状态码
+//        return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);}
 
     // 管理员登录 (不需要认证)
     @PostMapping("/login")
@@ -153,10 +210,11 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("无法取消该预约");
         }
     }
-
     // 注册用户（公用方法）
-    private ResponseEntity<?> registerUser(User user, int roleId) {
+    // 注册用户（公用方法）
+    private ResponseEntity<?> registerUser(User user, int roleId, String verificationCode) {
         try {
+            // 校验必要字段
             if (user.getUserID() == null || user.getUserID().trim().isEmpty()) {
                 return new ResponseEntity<>("UserID cannot be empty", HttpStatus.BAD_REQUEST);
             }
@@ -169,13 +227,45 @@ public class AdminController {
             if (user.getPhone() == null || user.getPhone().trim().isEmpty()) {
                 return new ResponseEntity<>("Phone cannot be empty", HttpStatus.BAD_REQUEST);
             }
+            if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
+                return new ResponseEntity<>("Email cannot be empty", HttpStatus.BAD_REQUEST);
+            }
 
-            User registeredUser = userService.registerUser(user, roleId);
-            return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);
+            // 调用 service 层的 registerUser 方法，加入验证码验证
+            User registeredUser = userService.registerUser(user, roleId, verificationCode);
+
+            // 如果注册成功，返回注册的用户信息
+            return ResponseEntity.status(HttpStatus.CREATED).body(registeredUser);
         } catch (RuntimeException e) {
+            // 捕获异常，返回错误信息
             return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
+
+
+
+//    // 注册用户（公用方法）
+//    private ResponseEntity<?> registerUser(User user, int roleId) {
+//        try {
+//            if (user.getUserID() == null || user.getUserID().trim().isEmpty()) {
+//                return new ResponseEntity<>("UserID cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//            if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+//                return new ResponseEntity<>("Username cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//            if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+//                return new ResponseEntity<>("Password cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//            if (user.getPhone() == null || user.getPhone().trim().isEmpty()) {
+//                return new ResponseEntity<>("Phone cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//
+//            User registeredUser = userService.registerUser(user, roleId);
+//            return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);
+//        } catch (RuntimeException e) {
+//            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+//        }
+//    }
 
     // 登录用户（公用方法）
     private ResponseEntity<?> loginUser(User loginUser, int roleId) {

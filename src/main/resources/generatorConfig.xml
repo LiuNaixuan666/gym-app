@@ -41,7 +41,7 @@
 <!--        <table tableName="feedbacks" domainObjectName="Feedback"/>-->
 <!--        <table tableName="notifications" domainObjectName="Notification"/>-->
 <!--        <table tableName="reports" domainObjectName="Report"/>-->
-        <table tableName="reservations" domainObjectName="Reservation"/>
+<!--        <table tableName="reservations" domainObjectName="Reservation"/>-->
         <table tableName="accesslogs" domainObjectName="Accesslogs"/>
 <!--        <table tableName="capacity_config" domainObjectName="CapacityConfig"/>-->
 <!--        <table tableName="capacity_logs" domainObjectName="CapacityLog"/>-->
