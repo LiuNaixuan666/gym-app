@@ -3,6 +3,7 @@ package com.liu.gymmanagement.controller;
 import com.liu.gymmanagement.dto.CapacityLogDTO;
 import com.liu.gymmanagement.dto.ReservationDTO;
 import com.liu.gymmanagement.dto.ReservationRequest;
+import com.liu.gymmanagement.dto.EquipmentDTO;
 import com.liu.gymmanagement.mapper.GymTimeslotMapper;
 import com.liu.gymmanagement.model.CapacityLog;
 import com.liu.gymmanagement.model.Gym;
@@ -41,6 +42,9 @@ public class StudentController {
 
     @Autowired
     private ReservationService reservationService;
+
+    @Autowired
+    private EquipmentService equipmentService;
 
 //    @Autowired
 //    private GymTimeslotMapper gymTimeslotMapper;
@@ -83,53 +87,6 @@ public class StudentController {
         return ResponseEntity.ok("Verification code sent!");
     }
 
-
-//    //发送验证码接口
-//    @GetMapping("/send-code")
-//    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
-//        if (!email.endsWith("@bupt.edu.cn")) {
-//            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
-//        }
-//
-//        String code = String.format("%06d", new Random().nextInt(999999));
-//        redisTemplate.opsForValue().set("email:code:" + email, code, Duration.ofMinutes(10));
-//        userService.sendEmailVerificationCode(email, code);
-//
-//        return ResponseEntity.ok("Verification code sent!");
-//    }
-    // 发送验证码接口
-//    @PostMapping("/send-code")
-//    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
-//        if (!email.endsWith("@bupt.edu.cn")) {
-//            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
-//        }
-//
-//        // 使用 SecureRandom 来生成验证码
-//        SecureRandom secureRandom = new SecureRandom();
-//        int code = secureRandom.nextInt(999999);  // 生成一个随机数
-//        String formattedCode = String.format("%06d", code); // 保证6位数
-//
-//        // 保存验证码到 Redis，有效期 10 分钟
-//        // 尝试使用 Redis 存储验证码
-//        try {
-//            redisTemplate.opsForValue().set("email:code:" + email, formattedCode, Duration.ofMinutes(10));
-//        } catch (Exception e) {
-//            // Redis 连接失败，使用内存缓存作为备选方案
-//            localCache.put(email, formattedCode);
-//            logger.error("Redis connection failed for saving email code for {}: {}", email, e.getMessage());
-//        }
-//        try {
-//            // 发送验证码邮件
-//            userService.sendEmailVerificationCode(email, formattedCode);
-//        } catch (Exception e) {
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-//                    .body("Failed to send verification code due to an error.");
-//        }
-//
-//        return ResponseEntity.ok("Verification code sent!");
-//    }
-//
-//
     // 学生注册
     @PostMapping("/register")
     public ResponseEntity<?> registerStudent(@RequestBody User user, @RequestParam String verificationCode) {
@@ -199,6 +156,14 @@ public class StudentController {
         return ResponseEntity.ok(capacityLogs);
     }
 
+    //获取健身房设备状态
+    @GetMapping("/equipment/{gymId}")
+    public List<EquipmentDTO> getEquipmentByGym(@PathVariable Integer gymId) {
+        return equipmentService.getEquipmentByGymId(gymId);
+    }
+
+
+
     // 查询未来7天的时段 (需要学生认证)
 //    @GetMapping("/timeslots")
 //    public List<GymTimeslot> getAvailableTimeslots() {
@@ -230,14 +195,20 @@ public class StudentController {
     // 获取学生所有预约 (需要学生认证)
     @GetMapping("/reservations")
     public List<ReservationDTO> getStudentReservations(HttpServletRequest request) {
+//        String userId = jwtUtil.getUserIdFromRequest(request);
+//        return reservationService.getUserReservations(userId);
         String userId = jwtUtil.getUserIdFromRequest(request);
-        return reservationService.getUserReservations(userId);
+        // 添加排序参数，按预约时间降序排列
+        return reservationService.getUserReservations(userId)
+                .stream()
+                .sorted(Comparator.comparing(ReservationDTO::getReservationTime).reversed())
+                .collect(Collectors.toList());
     }
 
 
 
     // 学生取消预约 (需要学生认证)
-    @DeleteMapping("/cancel/{reservationId}")
+    @DeleteMapping("/reservations/cancel/{reservationId}")
     public ResponseEntity<String> cancelReservation(HttpServletRequest request,
                                                     @PathVariable int reservationId) {
         String studentId = jwtUtil.getUserIdFromRequest(request);
@@ -257,6 +228,7 @@ public class StudentController {
         } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("取消失败，可能已过取消时限");
         }
+
     }
 
     // 注册用户（公用方法）
@@ -287,6 +259,72 @@ public class StudentController {
         }
     }
 
+    // 登录用户（公用方法）
+    private ResponseEntity<?> loginUser(User loginUser, int roleId) {
+        Optional<User> user = userService.loginUser(loginUser.getUserID(), loginUser.getPassword(), roleId);
+        if (user.isPresent()) {
+            String token = jwtUtil.generateToken(user.get().getUserID(), roleId);
+            Map<String, String> response = new HashMap<>();
+            response.put("token", token);
+            response.put("userId", user.get().getUserID());
+            response.put("roleId", String.valueOf(roleId));
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
+        }
+    }
+
+
+}
+
+
+//    //发送验证码接口
+//    @GetMapping("/send-code")
+//    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
+//        if (!email.endsWith("@bupt.edu.cn")) {
+//            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
+//        }
+//
+//        String code = String.format("%06d", new Random().nextInt(999999));
+//        redisTemplate.opsForValue().set("email:code:" + email, code, Duration.ofMinutes(10));
+//        userService.sendEmailVerificationCode(email, code);
+//
+//        return ResponseEntity.ok("Verification code sent!");
+//    }
+// 发送验证码接口
+//    @PostMapping("/send-code")
+//    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
+//        if (!email.endsWith("@bupt.edu.cn")) {
+//            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
+//        }
+//
+//        // 使用 SecureRandom 来生成验证码
+//        SecureRandom secureRandom = new SecureRandom();
+//        int code = secureRandom.nextInt(999999);  // 生成一个随机数
+//        String formattedCode = String.format("%06d", code); // 保证6位数
+//
+//        // 保存验证码到 Redis，有效期 10 分钟
+//        // 尝试使用 Redis 存储验证码
+//        try {
+//            redisTemplate.opsForValue().set("email:code:" + email, formattedCode, Duration.ofMinutes(10));
+//        } catch (Exception e) {
+//            // Redis 连接失败，使用内存缓存作为备选方案
+//            localCache.put(email, formattedCode);
+//            logger.error("Redis connection failed for saving email code for {}: {}", email, e.getMessage());
+//        }
+//        try {
+//            // 发送验证码邮件
+//            userService.sendEmailVerificationCode(email, formattedCode);
+//        } catch (Exception e) {
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body("Failed to send verification code due to an error.");
+//        }
+//
+//        return ResponseEntity.ok("Verification code sent!");
+//    }
+//
+//
+
 //    private ResponseEntity<?> registerUser(User user, int roleId) {
 //        try {
 //            if (user.getUserID() == null || user.getUserID().trim().isEmpty()) {
@@ -309,20 +347,7 @@ public class StudentController {
 //        }
 //    }
 
-    // 登录用户（公用方法）
-    private ResponseEntity<?> loginUser(User loginUser, int roleId) {
-        Optional<User> user = userService.loginUser(loginUser.getUserID(), loginUser.getPassword(), roleId);
-        if (user.isPresent()) {
-            String token = jwtUtil.generateToken(user.get().getUserID(), roleId);
-            Map<String, String> response = new HashMap<>();
-            response.put("token", token);
-            response.put("userId", user.get().getUserID());
-            response.put("roleId", String.valueOf(roleId));
-            return ResponseEntity.ok(response);
-        } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
-        }
-    }
+
 
 
 
@@ -480,6 +505,3 @@ public class StudentController {
 //        }
 //    }
 //
-
-
-}

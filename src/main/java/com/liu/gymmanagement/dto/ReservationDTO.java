@@ -1,6 +1,8 @@
 package com.liu.gymmanagement.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Date;
 
 public class ReservationDTO {
@@ -13,6 +15,35 @@ public class ReservationDTO {
     private String exitQrCode;
     private LocalDateTime qrExpiryTime;
     private String status;
+    private LocalDateTime  startTime; // 时段开始时间
+    private LocalDateTime  endTime; // 时段结束时间
+
+    private String gymName;
+
+    public String getGymName() {
+        return gymName;
+    }
+
+    public void setGymName(String gymName) {
+        this.gymName = gymName;
+    }
+
+
+    public LocalDateTime  getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(LocalDateTime  startTime) {
+        this.startTime = startTime;
+    }
+
+    public LocalDateTime  getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(LocalDateTime  endTime) {
+        this.endTime = endTime;
+    }
 
     public String getStatus() {
         return status;

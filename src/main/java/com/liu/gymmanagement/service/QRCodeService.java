@@ -43,19 +43,13 @@ public class QRCodeService {
             int reservationId = Integer.parseInt(matcher.group(4));  // Reservation ID
             String uniqueCode = matcher.group(5);  // 唯一的二维码标识符
 
-//            // 1️⃣ 查找预约信息
-//            Optional<Reservation> reservationOpt = reservationMapper.findById(reservationId);
-//            if (!reservationOpt.isPresent()) {
-//                return ResponseEntity.badRequest().body("❌ 找不到该预约记录");
-//            }
-//            Reservation reservation = reservationOpt.get();
             ReservationExample example = new ReservationExample();
             ReservationExample.Criteria criteria = example.createCriteria();
             criteria.andReservationidEqualTo(reservationId);
 
             List<Reservation> reservations = reservationMapper.selectByExample(example);
             if (reservations.isEmpty()) {
-                return ResponseEntity.badRequest().body("❌ 找不到该预约记录");
+                return ResponseEntity.badRequest().body("找不到该预约记录");
             }
             Reservation reservation = reservations.get(0);
 
@@ -107,6 +101,12 @@ public class QRCodeService {
     }
 }
 
+//            // 1️⃣ 查找预约信息
+//            Optional<Reservation> reservationOpt = reservationMapper.findById(reservationId);
+//            if (!reservationOpt.isPresent()) {
+//                return ResponseEntity.badRequest().body("❌ 找不到该预约记录");
+//            }
+//            Reservation reservation = reservationOpt.get();
 //    public ResponseEntity<String> handleQRCodeScan(String qrCodeData) {
 //        // 使用正则表达式拆分二维码数据
 //        String regex = "(\\d+)-(\\d+)-(entry|exit)-([a-f0-9\\-]+)";

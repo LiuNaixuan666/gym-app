@@ -2,6 +2,7 @@ package com.liu.gymmanagement.controller;
 
 import com.liu.gymmanagement.dto.GymTimeslotDTO;
 import com.liu.gymmanagement.dto.ReservationDTO;
+import com.liu.gymmanagement.model.Equipment;
 import com.liu.gymmanagement.model.Gym;
 import com.liu.gymmanagement.model.GymTimeslotTemplate;
 import com.liu.gymmanagement.model.User;
@@ -33,6 +34,9 @@ public class AdminController {
     private GymTimeslotTemplateService gymTimeslotTemplateService;
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired
+    private EquipmentService equipmentService;
+
 
     // 发送验证码接口
     @Autowired
@@ -146,6 +150,22 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Gym not found or update failed");
         }
     }
+
+    // 添加健身设备
+    @PostMapping("equipment/add/{gymId}")
+    public ResponseEntity<String> addEquipment(@PathVariable Integer gymId, @RequestBody Equipment equipment) {
+        equipment.setGymid(gymId);
+        equipmentService.addEquipment(equipment);
+        return ResponseEntity.ok("添加成功");
+    }
+
+    // 修改健身设备
+    @PutMapping("equipment/update")
+    public ResponseEntity<String> updateEquipment(@RequestBody Equipment equipment) {
+        equipmentService.updateEquipment(equipment);
+        return ResponseEntity.ok("修改成功");
+    }
+
 
     // 获取所有时段模板 (需要管理员认证)
     @GetMapping("/timeslot-templates")

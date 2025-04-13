@@ -1,16 +1,16 @@
 package com.liu.gymmanagement.service;
 
 import com.liu.gymmanagement.dto.ReservationDTO;
+import com.liu.gymmanagement.mapper.GymMapper;
 import com.liu.gymmanagement.mapper.GymTimeslotMapper;
 import com.liu.gymmanagement.mapper.ReservationMapper;
-import com.liu.gymmanagement.model.GymTimeslot;
-import com.liu.gymmanagement.model.GymTimeslotExample;
-import com.liu.gymmanagement.model.Reservation;
+import com.liu.gymmanagement.model.*;
 import com.liu.gymmanagement.dto.ReservationRequest;
-import com.liu.gymmanagement.model.ReservationExample;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 //import java.util.Date;
@@ -25,6 +25,8 @@ public class ReservationService {
     private ReservationMapper reservationMapper;
     @Autowired
     private GymTimeslotMapper gymTimeslotMapper;
+    @Autowired
+    private GymMapper gymMapper;
 
     public String generateQrCode(String userId, int gymId, String type, int reservationId) {
         String uniqueCode = UUID.randomUUID().toString(); // 生成唯一标识
@@ -111,17 +113,21 @@ public class ReservationService {
 
         // 转换为 DTO 对象
         List<ReservationDTO> reservationDTOList = new ArrayList<>();
+//        for (Reservation reservation : reservations) {
+//            ReservationDTO dto = new ReservationDTO();
+//            dto.setReservationId(reservation.getReservationid());
+//            dto.setGymId(reservation.getGymid());
+//            dto.setUserId(reservation.getUserid());
+//            dto.setTimeslotId(reservation.getTimeslotid());
+//            dto.setReservationTime(reservation.getReservationTime());
+//            dto.setEntryQrCode(reservation.getEntryQrCode());
+//            dto.setExitQrCode(reservation.getExitQrCode());
+//            dto.setQrExpiryTime(reservation.getQrExpiryTime());
+//            dto.setStatus(reservation.getStatus());
+//            reservationDTOList.add(dto);
+//        }
         for (Reservation reservation : reservations) {
-            ReservationDTO dto = new ReservationDTO();
-            dto.setReservationId(reservation.getReservationid());
-            dto.setGymId(reservation.getGymid());
-            dto.setUserId(reservation.getUserid());
-            dto.setTimeslotId(reservation.getTimeslotid());
-            dto.setReservationTime(reservation.getReservationTime());
-            dto.setEntryQrCode(reservation.getEntryQrCode());
-            dto.setExitQrCode(reservation.getExitQrCode());
-            dto.setQrExpiryTime(reservation.getQrExpiryTime());
-            dto.setStatus(reservation.getStatus());
+            ReservationDTO dto = convertToDTO(reservation);
             reservationDTOList.add(dto);
         }
         return reservationDTOList;
@@ -185,6 +191,30 @@ public class ReservationService {
         dto.setEntryQrCode(reservation.getEntryQrCode());
         dto.setExitQrCode(reservation.getExitQrCode());
         dto.setQrExpiryTime(reservation.getQrExpiryTime());
+        dto.setStatus(reservation.getStatus());
+
+        // 1. 获取 GymTimeslot 信息（时间段）
+        GymTimeslotExample gymTimeslotExample = new GymTimeslotExample();
+        gymTimeslotExample.createCriteria().andIdEqualTo(reservation.getTimeslotid());
+        List<GymTimeslot> timeslots = gymTimeslotMapper.selectByExample(gymTimeslotExample);
+
+        if (!timeslots.isEmpty()) {
+            GymTimeslot timeslot = timeslots.get(0);
+            LocalDate date = timeslot.getDate();
+            LocalTime start = timeslot.getStartTime();
+            LocalTime end = timeslot.getEndTime();
+            dto.setStartTime(LocalDateTime.of(date, start));
+            dto.setEndTime(LocalDateTime.of(date, end));
+        }
+
+        // 2. 获取 Gym 信息（体育馆名称）
+        GymExample gymExample = new GymExample();
+        gymExample.createCriteria().andGymidEqualTo(reservation.getGymid());
+        List<Gym> gyms = gymMapper.selectByExample(gymExample);
+
+        if (!gyms.isEmpty()) {
+            dto.setGymName(gyms.get(0).getName());
+        }
 
         return dto;
     }
