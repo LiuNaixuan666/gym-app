@@ -15,6 +15,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 //import java.util.Date;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -140,7 +141,8 @@ public class ReservationService {
 
         // 将每个 Reservation 转换为 ReservationDTO 并返回列表
         return reservations.stream()
-                .map(this::convertToDTO) // 使用转换方法转换成 DTO
+                .sorted(Comparator.comparing(Reservation::getReservationTime).reversed()) // 按 ReservationTime 倒序
+                .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 

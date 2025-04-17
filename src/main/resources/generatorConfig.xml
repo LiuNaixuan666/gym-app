@@ -36,7 +36,8 @@
         </javaClientGenerator>
 
         <!-- 逆向生成的表 -->
-        <table tableName="equipment" domainObjectName="Equipment"/>
+<!--        <table tableName="workout_log" domainObjectName="WorkoutLog" />-->
+            <table tableName="equipment" domainObjectName="Equipment"/>
 <!--        <table tableName="gym" domainObjectName="Gym"/>-->
 <!--        <table tableName="feedbacks" domainObjectName="Feedback"/>-->
 <!--        <table tableName="notifications" domainObjectName="Notification"/>-->

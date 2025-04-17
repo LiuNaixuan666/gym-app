@@ -2,12 +2,14 @@ package com.liu.gymmanagement.service;
 import com.liu.gymmanagement.mapper.GymTimeslotMapper;
 import com.liu.gymmanagement.mapper.GymTimeslotTemplateMapper;
 import com.liu.gymmanagement.model.GymTimeslot;
+import com.liu.gymmanagement.model.GymTimeslotExample;
 import com.liu.gymmanagement.model.GymTimeslotTemplate;
 import com.liu.gymmanagement.model.GymTimeslotTemplateExample;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 @Service
@@ -34,5 +36,7 @@ public class GymTimeslotTemplateService {
     public boolean deleteTemplate(int id) {
         return gymTimeslotTemplateMapper.deleteByPrimaryKey(id) > 0;
     }
+
+
 
 }

@@ -1,14 +1,8 @@
 package com.liu.gymmanagement.controller;
 
-import com.liu.gymmanagement.dto.CapacityLogDTO;
-import com.liu.gymmanagement.dto.ReservationDTO;
-import com.liu.gymmanagement.dto.ReservationRequest;
-import com.liu.gymmanagement.dto.EquipmentDTO;
+import com.liu.gymmanagement.dto.*;
 import com.liu.gymmanagement.mapper.GymTimeslotMapper;
-import com.liu.gymmanagement.model.CapacityLog;
-import com.liu.gymmanagement.model.Gym;
-import com.liu.gymmanagement.model.GymTimeslot;
-import com.liu.gymmanagement.model.User;
+import com.liu.gymmanagement.model.*;
 import com.liu.gymmanagement.service.*;
 import com.liu.gymmanagement.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,14 +40,20 @@ public class StudentController {
     @Autowired
     private EquipmentService equipmentService;
 
-//    @Autowired
-//    private GymTimeslotMapper gymTimeslotMapper;
+    @Autowired
+    private WorkoutLogService workoutLogService;
+
+    @Autowired
+    private FeedbackService feedbackService;
 
     @Autowired
     private GymTimeslotService gymTimeslotService;
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private NotificationService notificationService;
 
 //    @Autowired
 //    private RedisTemplate<String, String> redisTemplate;
@@ -100,23 +100,11 @@ public class StudentController {
         }
     }
 
-
-    //    // 学生注册
-//    @PostMapping("/register")
-//    public ResponseEntity<?> registerStudent(@RequestBody User user) {
-//        return registerUser(user, 1);  // 角色ID = 1 (学生)
-//    }
     // 学生登录 (不需要认证)
     @PostMapping("/login")
     public ResponseEntity<?> loginStudent(@RequestBody User loginUser) {
         return loginUser(loginUser, 1);  // 角色ID = 1 (学生)
     }
-
-//    // 学生登录
-//    @PostMapping("/login")
-//    public ResponseEntity<String> loginStudent(@RequestBody User loginUser) {
-//        return loginUser(loginUser, 1);  // 角色ID = 1 (学生)
-//    }
 
     // 查询用户信息 (需要学生认证)
     @GetMapping("/profile")
@@ -162,8 +150,6 @@ public class StudentController {
         return equipmentService.getEquipmentByGymId(gymId);
     }
 
-
-
     // 查询未来7天的时段 (需要学生认证)
 //    @GetMapping("/timeslots")
 //    public List<GymTimeslot> getAvailableTimeslots() {
@@ -186,9 +172,9 @@ public class StudentController {
 
         boolean success = reservationService.reserveGym(reservationRequest);
         if (success) {
-            return ResponseEntity.ok("预约成功");
+            return ResponseEntity.ok("Appointment success");
         } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("预约失败，可能已约满");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Reservation failed, it may be full.");
         }
     }
 
@@ -214,22 +200,78 @@ public class StudentController {
         String studentId = jwtUtil.getUserIdFromRequest(request);
 
         if (!reservationService.isReservationBelongsToStudent(reservationId, studentId)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("无法取消他人预约");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Cannot cancel other people's reservation.");
         }
 
         boolean canCancel = reservationService.isCancellable(reservationId);
         if (!canCancel) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("无法取消，可能已过取消时限");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Cannot cancel, the cancellation time may have expired.");
         }
 
         boolean success = reservationService.cancelReservation(reservationId);
         if (success) {
-            return ResponseEntity.ok("取消成功");
+            return ResponseEntity.ok("Cancel successfully");
         } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("取消失败，可能已过取消时限");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Cancellation failed, and the cancellation time limit may have passed.");
         }
 
     }
+
+    // 学生添加锻炼记录 (需要学生认证)
+    @PostMapping("/workout")
+    public ResponseEntity<String> addWorkout(@RequestBody WorkoutLog log, HttpServletRequest request) {
+        // 从请求中获取 userId
+        String userId = jwtUtil.getUserIdFromRequest(request);  // 使用现有的工具方法获取 userId
+
+        // 设置到 WorkoutLog 对象中
+        log.setUserid(userId);
+
+        // 校验必填字段
+        if (log.getActivitytype() == null || log.getDurationminutes() == null || log.getDate() == null) {
+            return ResponseEntity.badRequest().body("Please fill in the complete exercise record information.");
+        }
+
+        // 添加锻炼记录
+        workoutLogService.addWorkout(log);
+        return ResponseEntity.ok("Exercise record added successfully.");
+    }
+
+    // 查询用户锻炼记录
+    @GetMapping("/workout/{userId}")
+    public List<WorkoutLog> getWorkoutLog(@PathVariable String userId) {
+        return workoutLogService.getWorkoutsByUserId(userId);
+    }
+    @PostMapping("/feedback")
+    public ResponseEntity<Map<String, String>> submitFeedback(@RequestBody FeedbackDTO dto, HttpServletRequest request) {
+        // 从 JWT token 中提取 userId
+        String userId = jwtUtil.getUserIdFromRequest(request);
+        dto.setUserId(userId);  // 设置到 DTO 中
+
+        // 校验字段
+        if (dto.getContent() == null || dto.getCategory() == null) {
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Feedback content or type cannot be empty.");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        // 提交反馈
+        feedbackService.submitFeedback(dto);
+
+        // 返回 JSON 格式响应
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Feedback has been submitted, thank you for your comments.！");
+        return ResponseEntity.ok(response);
+    }
+
+
+    //通知查询
+    @GetMapping("/notifications")
+    public List<NotificationDTO> getMyNotifications(HttpServletRequest request) {
+        String userId = jwtUtil.getUserIdFromRequest(request); // 使用你之前写好的 JWT 工具类
+        return notificationService.getNotificationsForUser(userId);
+    }
+
+
 
     // 注册用户（公用方法）
     private ResponseEntity<?> registerUser(User user, int roleId, String verificationCode) {
@@ -505,3 +547,33 @@ public class StudentController {
 //        }
 //    }
 //
+
+//    // 添加锻炼记录
+//    @PostMapping("/workout")
+//    public ResponseEntity<String> addWorkout(@RequestBody WorkoutLog log) {
+//        if (log.getUserid() == null || log.getActivitytype() == null ||
+//                log.getDurationminutes() == null || log.getDate() == null) {
+//            return ResponseEntity.badRequest().body("请填写完整的锻炼记录信息");
+//        }
+//        workoutLogService.addWorkout(log);
+//        return ResponseEntity.ok("锻炼记录添加成功");
+//    }
+
+
+
+//    //用户反馈
+//    @PostMapping("/feedback")
+//    public ResponseEntity<String> submitFeedback(@RequestBody FeedbackDTO dto, HttpServletRequest request) {
+//        // 从 JWT token 中提取 userId
+//        String userId = jwtUtil.getUserIdFromRequest(request);
+//        dto.setUserId(userId);  // 设置到 DTO 中
+//
+//        // 校验字段
+//        if (dto.getContent() == null || dto.getCategory() == null) {
+//            return ResponseEntity.badRequest().body("反馈内容或类型不能为空");
+//        }
+//
+//        // 提交反馈
+//        feedbackService.submitFeedback(dto);
+//        return ResponseEntity.ok("反馈已提交，谢谢你的意见！");
+//    }

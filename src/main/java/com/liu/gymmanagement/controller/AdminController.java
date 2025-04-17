@@ -1,11 +1,7 @@
 package com.liu.gymmanagement.controller;
 
-import com.liu.gymmanagement.dto.GymTimeslotDTO;
-import com.liu.gymmanagement.dto.ReservationDTO;
-import com.liu.gymmanagement.model.Equipment;
-import com.liu.gymmanagement.model.Gym;
-import com.liu.gymmanagement.model.GymTimeslotTemplate;
-import com.liu.gymmanagement.model.User;
+import com.liu.gymmanagement.dto.*;
+import com.liu.gymmanagement.model.*;
 import com.liu.gymmanagement.service.*;
 import com.liu.gymmanagement.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,35 +32,12 @@ public class AdminController {
     private JwtUtil jwtUtil;
     @Autowired
     private EquipmentService equipmentService;
-
-
-    // 发送验证码接口
+    @Autowired
+    private NotificationService notificationService;
+    @Autowired
+    private FeedbackService feedbackService;
     @Autowired
     private EmailCodeCache localCache;
-
-    @PostMapping("/send-code")
-    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
-        if (!email.endsWith("@bupt.edu.cn")) {
-            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
-        }
-
-        SecureRandom secureRandom = new SecureRandom();
-        int code = secureRandom.nextInt(999999);
-        String formattedCode = String.format("%06d", code);
-
-        // ✅ 只用本地缓存保存验证码
-        localCache.put(email, formattedCode, Duration.ofMinutes(10));
-
-        try {
-            userService.sendEmailVerificationCode(email, formattedCode);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to send verification code due to an error.");
-        }
-
-        return ResponseEntity.ok("Verification code sent!");
-    }
-
 
     // 管理员注册
     @PostMapping("/register")
@@ -78,29 +51,6 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Registration failed: " + e.getMessage());
         }
     }
-
-
-//    //发送验证码接口
-//    @GetMapping("/send-code")
-//    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
-//        if (!email.endsWith("@bupt.edu.cn")) {
-//            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
-//        }
-//
-//        String code = String.format("%06d", new Random().nextInt(999999));
-//        redisTemplate.opsForValue().set("email:code:" + email, code, Duration.ofMinutes(10));
-//        userService.sendEmailVerificationCode(email, code);
-//
-//        return ResponseEntity.ok("Verification code sent!");
-//    }
-//
-//    // 管理员注册 (不需要认证)
-//    @PostMapping("/register")
-//    public ResponseEntity<?> registerAdmin(@RequestBody User user, @RequestParam String verificationCode) {
-//        User registeredUser = userService.registerUser(user, 2, verificationCode);  // 角色ID = 2 (管理员)
-//
-//        // 返回 ResponseEntity，包含注册的用户信息和 CREATED 状态码
-//        return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);}
 
     // 管理员登录 (不需要认证)
     @PostMapping("/login")
@@ -141,14 +91,45 @@ public class AdminController {
 
     // 更新健身房信息 (需要管理员认证)
     @PutMapping("/gyms/{gymId}")
-    public ResponseEntity<String> updateGym(@PathVariable Integer gymId, @RequestBody Gym gym) {
+    public ResponseEntity<Map<String, String>> updateGym(@PathVariable Integer gymId, @RequestBody Gym gym) {
         gym.setGymid(gymId);
         boolean isUpdated = gymService.updateGym(gym);
+        Map<String, String> result = new HashMap<>();
         if (isUpdated) {
-            return ResponseEntity.ok("Gym updated successfully");
+            result.put("message", "Gym updated successfully");
+            return ResponseEntity.ok(result);
         } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Gym not found or update failed");
+            result.put("message", "Gym not found or update failed");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
         }
+    }
+
+
+    // 添加健身房 (需要管理员认证)
+    @PostMapping("/gyms")
+    public ResponseEntity<Map<String, String>> addGym(@RequestBody Gym gym) {
+        Map<String, String> response = new HashMap<>();
+        boolean isAdded = gymService.addGym(gym);
+        if (isAdded) {
+            response.put("message", "Gym added successfully");
+            return ResponseEntity.ok(response);
+        } else {
+            response.put("message", "Failed to add gym");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    // 获取所有健身房的实时容量
+    @GetMapping("/gym/capacity")
+    public ResponseEntity<List<CapacityLogDTO>> getAllGymCurrentCapacity() {
+        List<CapacityLogDTO> capacityLogs = gymService.getAllGymRealTimeCapacity();
+        return ResponseEntity.ok(capacityLogs);
+    }
+
+    //获取健身房设备状态
+    @GetMapping("/equipment/{gymId}")
+    public List<EquipmentDTO> getEquipmentByGym(@PathVariable Integer gymId) {
+        return equipmentService.getEquipmentByGymId(gymId);
     }
 
     // 添加健身设备
@@ -180,6 +161,14 @@ public class AdminController {
         return success ? ResponseEntity.ok("模板添加成功") : ResponseEntity.badRequest().body("添加失败");
     }
 
+    // 应用模板时段 (需要管理员认证)
+    @PostMapping("timeslot-templates/apply")
+    public ResponseEntity<String> applyTemplateChanges() {
+        gymTimeslotService.regenerateTimeslotsAfterTemplateChange();
+        return ResponseEntity.ok("模板应用成功，已重新生成时段。");
+    }
+
+
     // 修改模板 (需要管理员认证)
     @PutMapping("/timeslot-templates/{id}")
     public ResponseEntity<String> updateTimeslotTemplate(@PathVariable int id, @RequestBody GymTimeslotTemplate template) {
@@ -195,10 +184,15 @@ public class AdminController {
     }
 
     // 管理员查看所有预约时段的情况 (需要管理员认证)
-    @GetMapping("/gyms/{gymId}/timeslots")
-    public List<GymTimeslotDTO> getGymTimeslots(@PathVariable int gymId) {
-        return gymTimeslotService.getTimeslotsForGym(gymId);
+    @GetMapping("/gyms/{gymId}/timeslots/{date}")
+    public List<GymTimeslot> getAvailableTimeslots(
+            @PathVariable int gymId,
+            @PathVariable String date) {
+        return gymTimeslotService.getTimeslotsForGym(gymId, date);
     }
+//    public List<GymTimeslotDTO> getGymTimeslots(@PathVariable int gymId) {
+//        return gymTimeslotService.getTimeslotsForGym(gymId);
+//    }
 
     // 管理员修改预约时段的最大容量 (需要管理员认证)
     @PutMapping("/gyms/{gymId}/timeslots/{timeslotId}")
@@ -230,6 +224,26 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("无法取消该预约");
         }
     }
+
+    // 管理员发送通知 (需要管理员认证)
+    @PostMapping("/notification/send")
+    public ResponseEntity<String> sendNotificationToAllUsers(@RequestBody NotificationRequest request,
+                                                             HttpServletRequest httpRequest) {
+        String adminId = jwtUtil.getUserIdFromRequest(httpRequest); // 获取当前管理员ID
+        notificationService.sendNotificationToAllStudents(adminId, request); // 发通知
+        return ResponseEntity.ok("通知已成功发送给所有学生！");
+    }
+
+    //管理员查看反馈
+    @GetMapping("/feedbacks")
+    public List<Feedback> getAllFeedbacks(HttpServletRequest request) {
+        String adminId = jwtUtil.getUserIdFromRequest(request);
+        // 你可以加日志记录哪个管理员查看了
+        return feedbackService.getAllFeedbacks();
+    }
+
+
+
     // 注册用户（公用方法）
     // 注册用户（公用方法）
     private ResponseEntity<?> registerUser(User user, int roleId, String verificationCode) {
@@ -263,30 +277,6 @@ public class AdminController {
     }
 
 
-
-//    // 注册用户（公用方法）
-//    private ResponseEntity<?> registerUser(User user, int roleId) {
-//        try {
-//            if (user.getUserID() == null || user.getUserID().trim().isEmpty()) {
-//                return new ResponseEntity<>("UserID cannot be empty", HttpStatus.BAD_REQUEST);
-//            }
-//            if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
-//                return new ResponseEntity<>("Username cannot be empty", HttpStatus.BAD_REQUEST);
-//            }
-//            if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
-//                return new ResponseEntity<>("Password cannot be empty", HttpStatus.BAD_REQUEST);
-//            }
-//            if (user.getPhone() == null || user.getPhone().trim().isEmpty()) {
-//                return new ResponseEntity<>("Phone cannot be empty", HttpStatus.BAD_REQUEST);
-//            }
-//
-//            User registeredUser = userService.registerUser(user, roleId);
-//            return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);
-//        } catch (RuntimeException e) {
-//            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
-//        }
-//    }
-
     // 登录用户（公用方法）
     private ResponseEntity<?> loginUser(User loginUser, int roleId) {
         Optional<User> user = userService.loginUser(loginUser.getUserID(), loginUser.getPassword(), roleId);
@@ -302,6 +292,7 @@ public class AdminController {
         }
     }
 }
+
 
 //@RestController
 //@RequestMapping("/api/admin")
@@ -479,3 +470,74 @@ public class AdminController {
 //        }
 //    }
 //}
+
+
+//    //发送验证码接口
+//    @GetMapping("/send-code")
+//    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
+//        if (!email.endsWith("@bupt.edu.cn")) {
+//            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
+//        }
+//
+//        String code = String.format("%06d", new Random().nextInt(999999));
+//        redisTemplate.opsForValue().set("email:code:" + email, code, Duration.ofMinutes(10));
+//        userService.sendEmailVerificationCode(email, code);
+//
+//        return ResponseEntity.ok("Verification code sent!");
+//    }
+//
+//    // 管理员注册 (不需要认证)
+//    @PostMapping("/register")
+//    public ResponseEntity<?> registerAdmin(@RequestBody User user, @RequestParam String verificationCode) {
+//        User registeredUser = userService.registerUser(user, 2, verificationCode);  // 角色ID = 2 (管理员)
+//
+//        // 返回 ResponseEntity，包含注册的用户信息和 CREATED 状态码
+//        return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);}
+
+
+//    // 注册用户（公用方法）
+//    private ResponseEntity<?> registerUser(User user, int roleId) {
+//        try {
+//            if (user.getUserID() == null || user.getUserID().trim().isEmpty()) {
+//                return new ResponseEntity<>("UserID cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//            if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+//                return new ResponseEntity<>("Username cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//            if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+//                return new ResponseEntity<>("Password cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//            if (user.getPhone() == null || user.getPhone().trim().isEmpty()) {
+//                return new ResponseEntity<>("Phone cannot be empty", HttpStatus.BAD_REQUEST);
+//            }
+//
+//            User registeredUser = userService.registerUser(user, roleId);
+//            return new ResponseEntity<>(registeredUser, HttpStatus.CREATED);
+//        } catch (RuntimeException e) {
+//            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+//        }
+//    }
+
+
+//    @PostMapping("/send-code")
+//    public ResponseEntity<?> sendEmailCode(@RequestParam String email) {
+//        if (!email.endsWith("@bupt.edu.cn")) {
+//            return ResponseEntity.badRequest().body("Only BUPT emails are allowed");
+//        }
+//
+//        SecureRandom secureRandom = new SecureRandom();
+//        int code = secureRandom.nextInt(999999);
+//        String formattedCode = String.format("%06d", code);
+//
+//        // ✅ 只用本地缓存保存验证码
+//        localCache.put(email, formattedCode, Duration.ofMinutes(10));
+//
+//        try {
+//            userService.sendEmailVerificationCode(email, formattedCode);
+//        } catch (Exception e) {
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body("Failed to send verification code due to an error.");
+//        }
+//
+//        return ResponseEntity.ok("Verification code sent!");
+//    }

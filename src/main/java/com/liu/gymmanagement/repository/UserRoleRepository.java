@@ -12,5 +12,7 @@ public interface UserRoleRepository extends JpaRepository<UserRole, UserRoleId> 
     // 按userID查询，这里需要根据复合主键UserRoleId的userID字段来查询
     List<UserRole> findById_UserID(String userID);
 
+    // 通过 roleID 查找（比如查所有学生）
+    List<UserRole> findById_RoleID(int roleID);
 
 }

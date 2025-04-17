@@ -21,7 +21,7 @@ public class EquipmentService {
         EquipmentExample example = new EquipmentExample();
         example.createCriteria().andGymidEqualTo(gymId);
 
-        List<Equipment> equipmentList = equipmentMapper.selectByExample(example);
+        List<Equipment> equipmentList = equipmentMapper.selectByExampleWithBLOBs(example);
 
         return equipmentList.stream().map(e -> {
             EquipmentDTO dto = new EquipmentDTO();

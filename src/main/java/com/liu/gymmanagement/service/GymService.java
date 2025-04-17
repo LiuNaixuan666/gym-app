@@ -21,7 +21,7 @@ public class GymService {
     private CapacityLogMapper capacityLogsMapper;
 
     public List<Gym> getAllGyms() {
-        return gymMapper.selectByExample(new GymExample());  // 查询所有
+        return gymMapper.selectByExampleWithBLOBs(new GymExample());  // 查询所有
     }
     // 更新健身房信息
     public boolean updateGym(Gym gym) {
@@ -37,6 +37,13 @@ public class GymService {
     public List<CapacityLogDTO> getAllGymRealTimeCapacity() {
         return capacityLogsMapper.getAllGymCurrentCapacityWithNames();
     }
+
+    // 添加健身房
+    public boolean addGym(Gym gym) {
+        int rowsInserted = gymMapper.insertSelective(gym);
+        return rowsInserted > 0;
+    }
+
 
 
 }
