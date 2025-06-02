@@ -108,6 +108,138 @@ public class UserService {
     }
 
 
+    // 用户登录（修改后支持JWT）
+    public Optional<User> loginUser(String userID, String password, int roleId) {
+        Optional<User> user = userRepository.findByUserID(userID);
+
+        if (user.isPresent()) {
+            // 调试信息
+            System.out.println("User found: " + user.get().getUserID());
+            System.out.println("Password matches: " + passwordEncoder.matches(password, user.get().getPassword()));
+
+            // 验证密码
+            if (passwordEncoder.matches(password, user.get().getPassword())) {
+                // 检查用户是否有该角色
+                List<UserRole> roles = userRoleRepository.findById_UserID(userID);
+                boolean hasRole = roles.stream().anyMatch(r -> r.getRoleID() == roleId);
+
+                if (hasRole) {
+                    return user;
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+
+
+    //实现查询用户信息
+    public Optional<User> getUserInfo(String userID, int roleId) {
+        // 查询用户
+        Optional<User> userOpt = userRepository.findByUserID(userID);
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            // 查询用户角色，确保用户拥有该角色
+            List<UserRole> roles = userRoleRepository.findById_UserID(userID);
+            boolean hasRole = roles.stream().anyMatch(r -> r.getRoleID() == roleId);
+
+            if (hasRole) {
+                return Optional.of(user);
+            }
+        }
+        return Optional.empty();  // 用户不存在或者没有该角色
+    }
+
+    // 修改用户信息
+    public User updateUserInfo(String userID, int roleId, User updatedUser) {
+        Optional<User> existingUserOpt = userRepository.findByUserID(userID);
+
+        if (existingUserOpt.isPresent()) {
+            User existingUser = existingUserOpt.get();
+
+            // 确保用户有该角色
+            List<UserRole> roles = userRoleRepository.findById_UserID(userID);
+            boolean hasRole = roles.stream().anyMatch(r -> r.getRoleID() == roleId);
+
+            if (!hasRole) {
+                throw new RuntimeException("Unauthorized to update this user.");
+            }
+
+            // 更新可修改字段
+            if (updatedUser.getUsername() != null) {
+                existingUser.setUsername(updatedUser.getUsername());
+            }
+            if (updatedUser.getPhone() != null) {
+                // 检查新手机号是否已被其他用户使用
+                Optional<User> phoneUser = userRepository.findByPhone(updatedUser.getPhone());
+                if (phoneUser.isPresent() && !phoneUser.get().getUserID().equals(userID)) {
+                    throw new RuntimeException("Phone number already in use by another user");
+                }
+                existingUser.setPhone(updatedUser.getPhone());
+            }
+            if (updatedUser.getAge() != 0) {
+                existingUser.setAge(updatedUser.getAge());
+            }
+            if (updatedUser.getGender() != null) {
+                existingUser.setGender(updatedUser.getGender());
+            }
+            if (updatedUser.getLabel() != null) {
+                existingUser.setLabel(updatedUser.getLabel());
+            }
+
+            // 如果提供了新密码，则加密后更新
+            if (updatedUser.getPassword() != null && !updatedUser.getPassword().trim().isEmpty()) {
+                existingUser.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
+            }
+
+            return userRepository.save(existingUser);
+        } else {
+            throw new RuntimeException("User not found.");
+        }
+    }
+
+
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    public void testDatabaseConnection() {
+        try {
+            jdbcTemplate.execute("SELECT 1");
+            System.out.println("Database connection successful!");
+        } catch (Exception e) {
+            System.out.println("Database connection failed!");
+            e.printStackTrace();
+        }
+    }
+
+    private String generateVerificationCode() {
+        return String.format("%06d", new Random().nextInt(999999));
+    }
+
+    public void sendEmailVerificationCode(String email, String code) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom("3405508716@qq.com"); // 必须与spring.mail.username一致
+            message.setTo(email);
+            message.setSubject("Gym App Email Verification");
+            message.setText("Your verification code is: <b>" + code + "</b><br/>This code is valid for 10 minutes.");
+
+            // 发送邮件
+            mailSender.send(message);
+        } catch (Exception e) {
+            logger.error("Error occurred while sending verification email to {}: {}", email, e.getMessage(), e);
+            throw new RuntimeException("Failed to send verification email.");
+        }
+    }
+
+}
+
+
+
+
+
 
 //    // 用户注册
 //    public User registerUser(User user, int roleId, String verificationCode) {
@@ -181,29 +313,6 @@ public class UserService {
 //
 //    }
 
-    // 用户登录（修改后支持JWT）
-    public Optional<User> loginUser(String userID, String password, int roleId) {
-        Optional<User> user = userRepository.findByUserID(userID);
-
-        if (user.isPresent()) {
-            // 调试信息
-            System.out.println("User found: " + user.get().getUserID());
-            System.out.println("Password matches: " + passwordEncoder.matches(password, user.get().getPassword()));
-
-            // 验证密码
-            if (passwordEncoder.matches(password, user.get().getPassword())) {
-                // 检查用户是否有该角色
-                List<UserRole> roles = userRoleRepository.findById_UserID(userID);
-                boolean hasRole = roles.stream().anyMatch(r -> r.getRoleID() == roleId);
-
-                if (hasRole) {
-                    return user;
-                }
-            }
-        }
-        return Optional.empty();
-    }
-
 //    // 用户登录
 //    public Optional<User> loginUser(String userID, String password, int roleId) {
 //        Optional<User> user = userRepository.findByUserID(userID);
@@ -224,71 +333,6 @@ public class UserService {
 //        return Optional.empty();
 //    }
 
-    //实现查询用户信息
-    public Optional<User> getUserInfo(String userID, int roleId) {
-        // 查询用户
-        Optional<User> userOpt = userRepository.findByUserID(userID);
-
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            // 查询用户角色，确保用户拥有该角色
-            List<UserRole> roles = userRoleRepository.findById_UserID(userID);
-            boolean hasRole = roles.stream().anyMatch(r -> r.getRoleID() == roleId);
-
-            if (hasRole) {
-                return Optional.of(user);
-            }
-        }
-        return Optional.empty();  // 用户不存在或者没有该角色
-    }
-
-    // 修改用户信息
-    public User updateUserInfo(String userID, int roleId, User updatedUser) {
-        Optional<User> existingUserOpt = userRepository.findByUserID(userID);
-
-        if (existingUserOpt.isPresent()) {
-            User existingUser = existingUserOpt.get();
-
-            // 确保用户有该角色
-            List<UserRole> roles = userRoleRepository.findById_UserID(userID);
-            boolean hasRole = roles.stream().anyMatch(r -> r.getRoleID() == roleId);
-
-            if (!hasRole) {
-                throw new RuntimeException("Unauthorized to update this user.");
-            }
-
-            // 更新可修改字段
-            if (updatedUser.getUsername() != null) {
-                existingUser.setUsername(updatedUser.getUsername());
-            }
-            if (updatedUser.getPhone() != null) {
-                // 检查新手机号是否已被其他用户使用
-                Optional<User> phoneUser = userRepository.findByPhone(updatedUser.getPhone());
-                if (phoneUser.isPresent() && !phoneUser.get().getUserID().equals(userID)) {
-                    throw new RuntimeException("Phone number already in use by another user");
-                }
-                existingUser.setPhone(updatedUser.getPhone());
-            }
-            if (updatedUser.getAge() != 0) {
-                existingUser.setAge(updatedUser.getAge());
-            }
-            if (updatedUser.getGender() != null) {
-                existingUser.setGender(updatedUser.getGender());
-            }
-            if (updatedUser.getLabel() != null) {
-                existingUser.setLabel(updatedUser.getLabel());
-            }
-
-            // 如果提供了新密码，则加密后更新
-            if (updatedUser.getPassword() != null && !updatedUser.getPassword().trim().isEmpty()) {
-                existingUser.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
-            }
-
-            return userRepository.save(existingUser);
-        } else {
-            throw new RuntimeException("User not found.");
-        }
-    }
 
 
 //    //实现修改用户信息
@@ -334,40 +378,6 @@ public class UserService {
 //            throw new RuntimeException("User not found.");
 //        }
 //    }
-
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
-    public void testDatabaseConnection() {
-        try {
-            jdbcTemplate.execute("SELECT 1");
-            System.out.println("Database connection successful!");
-        } catch (Exception e) {
-            System.out.println("Database connection failed!");
-            e.printStackTrace();
-        }
-    }
-
-    private String generateVerificationCode() {
-        return String.format("%06d", new Random().nextInt(999999));
-    }
-
-    public void sendEmailVerificationCode(String email, String code) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom("3405508716@qq.com"); // 必须与spring.mail.username一致
-            message.setTo(email);
-            message.setSubject("Gym App Email Verification");
-            message.setText("Your verification code is: <b>" + code + "</b><br/>This code is valid for 10 minutes.");
-
-            // 发送邮件
-            mailSender.send(message);
-        } catch (Exception e) {
-            logger.error("Error occurred while sending verification email to {}: {}", email, e.getMessage(), e);
-            throw new RuntimeException("Failed to send verification email.");
-        }
-    }
 //    public void sendEmailVerificationCode(String email, String code) {
 //        SimpleMailMessage message = new SimpleMailMessage();
 //        message.setTo(email);
@@ -377,5 +387,3 @@ public class UserService {
 //    }
 
 
-
-}

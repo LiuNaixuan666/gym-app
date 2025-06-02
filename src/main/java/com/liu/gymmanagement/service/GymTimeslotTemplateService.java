@@ -36,7 +36,4 @@ public class GymTimeslotTemplateService {
     public boolean deleteTemplate(int id) {
         return gymTimeslotTemplateMapper.deleteByPrimaryKey(id) > 0;
     }
-
-
-
 }

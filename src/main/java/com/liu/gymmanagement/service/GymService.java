@@ -29,11 +29,6 @@ public class GymService {
         return rowsAffected > 0;
     }
 
-    // 获取所有健身房的实时容量
-//    public List<CapacityLog> getAllGymRealTimeCapacity() {
-//        return capacityLogsMapper.getAllGymCurrentCapacity();
-//    }
-
     public List<CapacityLogDTO> getAllGymRealTimeCapacity() {
         return capacityLogsMapper.getAllGymCurrentCapacityWithNames();
     }
@@ -43,7 +38,9 @@ public class GymService {
         int rowsInserted = gymMapper.insertSelective(gym);
         return rowsInserted > 0;
     }
-
-
-
 }
+
+// 获取所有健身房的实时容量
+//    public List<CapacityLog> getAllGymRealTimeCapacity() {
+//        return capacityLogsMapper.getAllGymCurrentCapacity();
+//    }

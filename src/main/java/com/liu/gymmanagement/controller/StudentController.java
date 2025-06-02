@@ -54,6 +54,9 @@ public class StudentController {
 
     @Autowired
     private NotificationService notificationService;
+    @Autowired
+    private QRCodeService qrCodeService;
+
 
 //    @Autowired
 //    private RedisTemplate<String, String> redisTemplate;
@@ -156,6 +159,7 @@ public class StudentController {
 //        return gymTimeslotService.getFutureTimeslots();
 //    }
 
+    // 查询未来7天的时段 (需要学生认证)
     @GetMapping("/timeslots/{gymId}/{date}")
     public List<GymTimeslot> getAvailableTimeslots(
             @PathVariable int gymId,
@@ -190,6 +194,31 @@ public class StudentController {
                 .sorted(Comparator.comparing(ReservationDTO::getReservationTime).reversed())
                 .collect(Collectors.toList());
     }
+
+    // 处理树莓派传来的二维码数据（JSON 格式）
+    @PostMapping("/reservations/scan")
+    public ResponseEntity<Map<String, Object>> getScanFeedback(
+            @RequestParam String userId,
+            @RequestParam String type) {
+
+        ScanFeedback feedback = qrCodeService.getFeedback(userId, type);
+        if (feedback == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "success", false,
+                    "message", "No scan feedback available"
+            ));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "success", feedback.isSuccess(),
+                "message", feedback.getMessage(),
+                "time", feedback.getTime().toString()
+        ));
+    }
+//    public ResponseEntity<Map<String, Object>> processQRCodeScan1(@RequestBody Map<String, String> payload) {
+//        String qrCodeData = payload.get("qrCodeData");
+//        return qrCodeService.handleQRCodeScan1(qrCodeData);
+//    }
 
 
 
@@ -240,6 +269,14 @@ public class StudentController {
     @GetMapping("/workout/{userId}")
     public List<WorkoutLog> getWorkoutLog(@PathVariable String userId) {
         return workoutLogService.getWorkoutsByUserId(userId);
+    }
+
+    //用户锻炼建议
+    @GetMapping("/workout/suggestion")
+    public ResponseEntity<String> getWorkoutSuggestion(HttpServletRequest request) {
+        String userId = jwtUtil.getUserIdFromRequest(request);
+        String suggestion = workoutLogService.generateWorkoutSuggestion(userId);
+        return ResponseEntity.ok(suggestion);
     }
     @PostMapping("/feedback")
     public ResponseEntity<Map<String, String>> submitFeedback(@RequestBody FeedbackDTO dto, HttpServletRequest request) {

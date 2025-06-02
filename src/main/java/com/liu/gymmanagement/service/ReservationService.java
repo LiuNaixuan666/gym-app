@@ -60,10 +60,7 @@ public class ReservationService {
             return false;
         }
 
-//        // 生成二维码（将 reservationId 传入生成二维码方法）
-//        reservation.setEntryQrCode(generateQrCode(request.getUserId(), request.getGymId(), "entry", reservationId));
-//        reservation.setExitQrCode(generateQrCode(request.getUserId(), request.getGymId(), "exit", reservationId));
-//
+
         // 生成二维码
         String entryCode = generateQrCode(request.getUserId(), request.getGymId(), "entry", reservationId);
         String exitCode = generateQrCode(request.getUserId(), request.getGymId(), "exit", reservationId);
@@ -114,19 +111,7 @@ public class ReservationService {
 
         // 转换为 DTO 对象
         List<ReservationDTO> reservationDTOList = new ArrayList<>();
-//        for (Reservation reservation : reservations) {
-//            ReservationDTO dto = new ReservationDTO();
-//            dto.setReservationId(reservation.getReservationid());
-//            dto.setGymId(reservation.getGymid());
-//            dto.setUserId(reservation.getUserid());
-//            dto.setTimeslotId(reservation.getTimeslotid());
-//            dto.setReservationTime(reservation.getReservationTime());
-//            dto.setEntryQrCode(reservation.getEntryQrCode());
-//            dto.setExitQrCode(reservation.getExitQrCode());
-//            dto.setQrExpiryTime(reservation.getQrExpiryTime());
-//            dto.setStatus(reservation.getStatus());
-//            reservationDTOList.add(dto);
-//        }
+
         for (Reservation reservation : reservations) {
             ReservationDTO dto = convertToDTO(reservation);
             reservationDTOList.add(dto);
@@ -221,7 +206,23 @@ public class ReservationService {
         return dto;
     }
 
-
+//        for (Reservation reservation : reservations) {
+//            ReservationDTO dto = new ReservationDTO();
+//            dto.setReservationId(reservation.getReservationid());
+//            dto.setGymId(reservation.getGymid());
+//            dto.setUserId(reservation.getUserid());
+//            dto.setTimeslotId(reservation.getTimeslotid());
+//            dto.setReservationTime(reservation.getReservationTime());
+//            dto.setEntryQrCode(reservation.getEntryQrCode());
+//            dto.setExitQrCode(reservation.getExitQrCode());
+//            dto.setQrExpiryTime(reservation.getQrExpiryTime());
+//            dto.setStatus(reservation.getStatus());
+//            reservationDTOList.add(dto);
+//        }
+//        // 生成二维码（将 reservationId 传入生成二维码方法）
+//        reservation.setEntryQrCode(generateQrCode(request.getUserId(), request.getGymId(), "entry", reservationId));
+//        reservation.setExitQrCode(generateQrCode(request.getUserId(), request.getGymId(), "exit", reservationId));
+//
 
 
 //    public boolean reserveGym(ReservationRequest request) {
